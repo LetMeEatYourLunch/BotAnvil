@@ -1,0 +1,6 @@
+Take data from online source
+ - Pipeline driving set: ASX ticker, date from, date to
+ - Data storage parquet (conda install -c conda-forge pyarrow)
+Run agent against data
+See agent performance
+ - Application (Shiny) Select bot, simulate, View performance, plot time-series performance
