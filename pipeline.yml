@@ -1,0 +1,5 @@
+connection:
+    base_url: "https://www.asx.com.au/asx/1/share/"
+    suffix: "/prices?interval=daily&count=255"
+paths:
+    root: "C:\\Users\\user\\Documents\\Python Scripts\\Projects\\TraderTool\\"
