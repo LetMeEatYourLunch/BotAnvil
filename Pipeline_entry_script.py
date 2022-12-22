@@ -28,7 +28,16 @@ t_np = t.to_numpy()
 q.close_price.rolling(4).mean()
 #RSI with 14 days
 test.get_rsi(q)
-   
+#def get_ema(x, window):
+#    ema = np.zeros(len(x))
+#    ema[window + 1] = np.mean(x[0:window])
+#    mult = np.divide(2.0, window + 1.0)
+#    for i in range(window + 2, len(x)):
+#        ema[i] =  np.multiply(x[i], mult) + np.multiply(ema[i-1], 1 - mult) 
+#    return ema
+
+w = test.get_ema(q, 20, 2)
+ww = test.get_macd(q)
 
 
                           

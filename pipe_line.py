@@ -136,12 +136,62 @@ class pipe_line:
         df["gain_mean"] = df.gain.rolling(window = rsi_window).mean()
         
         df["RSI"] = 100 - np.divide(100
-                                    , 1 + np.divide((np.multiply(df.gain_mean, 13) + df.gain)
-                                                    , (np.multiply(df.loss_mean, 13) + df.loss)))
+                                    , 1 + np.divide((np.multiply(df.gain_mean
+                                                                 , rsi_window - 1) + df.gain)
+                                                    , (np.multiply(df.loss_mean
+                                                                   , rsi_window - 1) + df.loss)))
         # Clean-up after calculation
         df.drop(["delta", "loss", "gain", "loss_mean", "gain_mean"], axis = 1)
         
         return df
+    
+    def get_ema(self, df, window, smoothing = 2):
+        """
+        https://www.investopedia.com/terms/e/ema.asp
+
+        Args:
+            df (TYPE): DESCRIPTION.
+            window (TYPE): DESCRIPTION.
+            smoothing (TYPE): DESCRIPTION.
+
+        Returns:
+            ema (TYPE): DESCRIPTION.
+
+        """
+        # TODO: Probably should start with array of nulls
+        len_close_price = len(df.close_price)
+        ema = np.zeros(len_close_price)
+        # The first EMA calculation uses a SMA as an aproximation
+        ema[window + 1] = np.mean(df.close_price[0:window])
+        mult = np.divide(smoothing, window + 1.0)
+        # TODO: Replace with Pandas rolling function to neaten code
+        for i in range(window + 2, len_close_price):
+            ema[i] =  np.multiply(df.close_price[i], mult) + np.multiply(ema[i-1], 1 - mult) 
+        df["ema"] = ema
+        
+        return df
+        
+    def get_macd(self, df, smoothing = 2):
+        """
+        https://www.investopedia.com/terms/m/macd.asp
+
+        Args:
+            df (TYPE): DESCRIPTION.
+
+        Returns:
+            None.
+
+        """
+        df = self.get_ema(df, 12, smoothing = smoothing)
+        df["ema_12"] = df["ema"]
+        df = self.get_ema(df, 26, smoothing = smoothing)
+        df["ema_26"] = df["ema"]
+        df["macd"] = df.ema_12 - df.ema_26
+        # Clean-up after calculation
+        df.drop(["ema", "ema_26", "ema_12"], axis = 1)
+        return df
+        
+        
         
         
         
