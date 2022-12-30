@@ -41,12 +41,8 @@ ui <- dashboardPage(skin = 'black'
                         )
                         , menuItem(tabName = "charts"
                                    , text = "Charts"
-                                   , icon = icon("folder-open")
-                                   
-                        )
-                        , menuItem(tabName = "results"
-                                   , text = "Results"
                                    , icon = icon("chart-bar")
+                                   
                         )
                       )
                     )
@@ -89,16 +85,6 @@ ui <- dashboardPage(skin = 'black'
                                              )
                                       )
                                     
-                          )
-                          , tabItem(tabName = "summary"
-                                    , fluidRow(
-                                      column(width = 6
-                                             , box(width = 6
-                                                   , height = "40vh")
-                                             , box(width = 6
-                                                   , height = "40vh")
-                                      )
-                                    )
                           )
                         )
                       )
@@ -180,6 +166,8 @@ server <- function(input, output) {
         ts_raw[["volume"]] <- unlist(ts_raw[["volume"]])
         
       }
+      # Data sanitisation; convert close_date (Unix time) to lubridate datetime
+      ts_raw[["close_date"]] <- lubridate::as_datetime(ts_raw[["close_date"]])
       
       fst::write.fst(as.data.frame(ts_raw), "asx_time_series.fst")
       
@@ -265,17 +253,22 @@ plotter <- function(input, output) {
                                    , n = 1
                                    , type = "lag")
              , by = "code"]
-      # Render candle-stick of selected stock for Client
-      
+      # Slice by selected code
       if (!is.null(input$ticker_picker_radio)) {
         ts_raw_code <- ts_raw[code == input$ticker_picker_radio]
       } else {
         default_code <- unique(ts_raw$code)[1]
-        ts_raw_code <-ts_raw[code == default_code]
+        ts_raw_code <- ts_raw[code == default_code]
       }
+      # Convert date to format readible by echarts4r (drop time of day)
+      ts_raw_code[, date := format(as.Date(close_date), "%Y-%m-%d")]
+      ts_raw_code <- ts_raw_code[order(date)]
+      # Echarts 4r needs data.frame
+      ts_raw_code = as.data.frame(ts_raw_code)
+      # set index column to date (so that echarts4r displays time correctly)
+      rownames(ts_raw_code) <- ts_raw_code[["date"]]
       ts_raw_code |>
-        e_charts(close_date) |>
-        # First arg should be open price; TODO use previous days close price
+        e_charts(date) |>
         e_candle(open_price
                  , close_price
                  , day_low_price
