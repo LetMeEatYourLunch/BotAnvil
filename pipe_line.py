@@ -8,6 +8,7 @@ import pandas as pd
 import yaml
 import requests
 import numpy as np
+import pytz
 
 class pipe_line:
     
@@ -49,7 +50,7 @@ class pipe_line:
 
         """
         
-    def asx_to_pandas_date(df):
+    def asx_to_unix_datetime(self, df):
         """
         
 
@@ -60,7 +61,20 @@ class pipe_line:
             None.
 
         """
+        # list of available timezones: pytz.common_timezones
+        assert(isinstance(df, pd.DataFrame))
+        assert("close_date" in df.columns)
         
+        # Convert to type Timestamp
+        df.close_date = df.close_date.apply(pd.Timestamp)
+        # Convert to UTC
+        df.close_date = df.close_date.apply(lambda x: pd.Timestamp.tz_convert(x, tz = "UTC"))
+        # Convert to Unix time
+        df.close_date = df.close_date - pd.Timestamp("1970-01-01", tz="UTC")
+        # Convert to seconds past unix epoch (Unix time)
+        df.close_date = df.close_date.apply(lambda x: x/pd.Timedelta(seconds=1))
+        
+        return(df)
         
     
     def pull_dt(self, asx_code):
