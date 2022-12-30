@@ -44,6 +44,7 @@ def analyse_tickers(tickers):
         df_ticker = pipe.get_macd(df_ticker)
         df_all = pd.concat([df_all, df_ticker])
         
+    df_all = pipe.asx_to_unix_datetime(df_all)
     
     return df_all
     
