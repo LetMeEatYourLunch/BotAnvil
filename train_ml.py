@@ -72,8 +72,24 @@ class machine_learn_predict:
         
 
     
-    def get_train_dat(self):
-        pass
+    def get_train_dat(self, training_dt, feature_col, ts_train_length = 5):
+        # Development limitations for testing
+        assert(len(feature_col) == 1)
+        
+        feature_set = []
+        label_set   = []
+        
+        ts = training_dt[feature_col]
+        for w in ts.rolling(window = ts_train_length):
+            if len(w) == ts_train_length:
+                train_data = w.values
+                feature_set.append(train_data[0:ts_train_length - 2])
+                label_set.append(train_data[ts_train_length-1])
+        
+        ml_features = torch.tensor(feature_set)
+        ml_labels   = torch.tensor(label_set)
+        train_set = tensordataset(ml_features, ml_labels)
+        return(train_set)
         
     def generate_ml(self):
         self.model = model = lstm()
