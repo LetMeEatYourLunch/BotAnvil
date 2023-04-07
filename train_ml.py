@@ -37,15 +37,18 @@ class lstm(l.LightningModule):
     def training_step(self, batch, batch_idx):
         input_i, label_i = batch
         output_i = self.forward(input_i[0])
+        # Remove cuda:0 flag
+        output_i = output_i.item()
+        #loss = torch.tensor(np.array((output_i - label_i)**2))
         loss = (output_i - label_i)**2
-        
+        loss = torch.tensor(loss, requires_grad = True)
         self.log("train_loss", loss)
+        # Need to update the loss logging; need an automated way to manager labels
         if (label_i == 0):
             self.log("out_0", output_i)
         elif(label_i == 1):
             self.log("out_1", output_i)
-        else:
-            return False
+
         return loss
     
 class machine_learn_predict:
@@ -60,21 +63,34 @@ class machine_learn_predict:
                        , "pytorch_lightning" : "lightning"}
                        
         for k in req_modules.keys():
-            try:
-                exec("import {module} as {reference}".format(module = k, reference = req_modules[k]))
-            except Exception as e:
-                print(e)
+            len_itm = len(req_modules[k])
+            if len_itm == 0:
+                import_string = "import {module}".format(module = k)
+            elif len_itm > 0:
+                import_string = "import {module} as {reference}".format(module = k
+                                                                        , reference = req_modules[k])
+            else:
+                raise Exception("Bad import string")
             
-        from torch.optim import Adam as adam
-        from torch.utils.data import TensorDataset as tensordataset
-        from torch.utils.data import DataLoader as dataloader
-        return True
+            try:
+                exec(import_string)
+            except Exception as e:
+                print(str(e) + "\n" + import_string)
+            
+        try:
+            from torch.optim import Adam as adam
+            from torch.utils.data import TensorDataset as tensordataset
+            from torch.utils.data import DataLoader as dataloader
+        except Exception as e:
+            print(str(e) + "; module/class not available")
+
+        self.model = None
+        self.num_cpus = os.cpu_count()            
+        return None
         
 
     
-    def get_train_dat(self, training_dt, feature_col, ts_train_length = 5):
-        # Development limitations for testing
-        assert(len(feature_col) == 1)
+    def get_learn_dat(self, training_dt, feature_col, ts_train_length = 6):
         
         feature_set = []
         label_set   = []
@@ -84,25 +100,48 @@ class machine_learn_predict:
             if len(w) == ts_train_length:
                 train_data = w.values
                 feature_set.append(train_data[0:ts_train_length - 2])
-                label_set.append(train_data[ts_train_length-1])
+                label_set.append(train_data[ts_train_length - 1])
         
-        ml_features = torch.tensor(feature_set)
-        ml_labels   = torch.tensor(label_set)
-        train_set = tensordataset(ml_features, ml_labels)
-        return(train_set)
+        ml_features = torch.tensor(np.array(feature_set, dtype = np.float32))
+        ml_labels   = torch.tensor(np.array(label_set, dtype = np.float32))
+        learn_superset = tensordataset(ml_features, ml_labels)
         
+        return(learn_superset)
+    
+    def scale_learn_dat(self, learn_superset):
+        #https://discuss.pytorch.org/t/pytorch-tensor-scaling/38576
+        # subtract mean & divide by sd
+        # do this on a column by column basis and return mean & sd for each col
+        
+    
+    def apportion_train_set(self, learn_superset, train_split = 0.8):
+
+        # Allocate training and test data sets
+        # Length of training batches
+        len_learn_superset = len(learn_superset)
+        # Divide learning data into training and test components
+        num_training_batch = int(train_split * len_learn_superset)
+        num_test_batch     = len_learn_superset - num_training_batch
+        assert(num_training_batch + num_test_batch == len_learn_superset)
+        train_set, test_set = torch.utils.data.random_split(learn_superset
+                                                            , [num_training_batch
+                                                               , num_test_batch])
+        return(train_set, test_set)
+    
     def generate_ml(self):
-        self.model = model = lstm()
+        self.model = lstm()
     
     def train_ml(self                 
                  , train_set
                  , max_epochs
-                 , best_checkpoint_path = False
-                 ):
-        assert(isinstance(train_set, torch.utils.data.dataset.TensorDataset))
+                 , best_checkpoint_path = False):
+        assert(isinstance(train_set, torch.utils.data.dataset.TensorDataset) or
+               isinstance(train_set, torch.utils.data.dataset.Subset))
         assert(isinstance(max_epochs, int))
+        print(self.model)
+        assert(not self.model is None)
         
-        data_loader = dataloader(train_set)
+        data_loader = dataloader(train_set, num_workers = self.num_cpus)
         # Smokem if you've gottem
         if torch.cuda.is_available():
             trainer = l.Trainer(max_epochs = max_epochs
@@ -113,7 +152,7 @@ class machine_learn_predict:
             trainer = l.Trainer(max_epochs = max_epochs)
         # Reload from previous save-point
         if best_checkpoint_path != False:
-            assert(best_checkpoint_path, str)
+            assert(isinstance(best_checkpoint_path, str))
             trainer.fit(self.model
                         , train_dataloaders = data_loader
                         , ckpt_path         = best_checkpoint_path)
@@ -131,6 +170,11 @@ class machine_learn_predict:
         else:
             return False
     
-    def get_ml_test_results(self):
-        pass
+    def get_ml_test_results(self, train_set):
+        
+        data_loader = dataloader(train_set)
+        
+        trainer.test(dataloaders = test_dataloaders)
+        trainer = l.Trainer(max_epochs = max_epochs)
+        trainer.test(dataloaders = test_dataloaders)
         
