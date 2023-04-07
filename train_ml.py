@@ -88,8 +88,26 @@ class machine_learn_predict:
         self.num_cpus = os.cpu_count()            
         return None
         
-
-    
+    def scale_inputs(self, input_data, feature_cols, label_cols):
+        assert(isinstance(input_data, pandas.core.frame.DataFrame))
+        # Assert no intersection between features and labels
+        assert(set(feature_cols).intersection(label_cols) == set())
+        scaled_input = input_data.copy()
+        scale_meta_dat = {}
+        for col in feature_cols + label_cols:
+            col_mean = np.mean(input_data[str(col)])
+            col_std  = np.std(input_data[str(col)])
+            scaled_input[str(col)] -= col_mean
+            scaled_input[str(col)] /= col_std
+            scale_meta_dat[col] = [col_mean, col_std]
+        return(scaled_input, scale_meta_dat)
+            
+    def unscale_col(self, scaled_col, col_mean, col_std):
+        descaled_col   = scaled_col
+        descaled_col *= col_std
+        descaled_col += col_mean
+        return(descaled_col)
+          
     def get_learn_dat(self, training_dt, feature_col, ts_train_length = 6):
         
         feature_set = []
@@ -108,11 +126,7 @@ class machine_learn_predict:
         
         return(learn_superset)
     
-    def scale_learn_dat(self, learn_superset):
-        #https://discuss.pytorch.org/t/pytorch-tensor-scaling/38576
-        # subtract mean & divide by sd
-        # do this on a column by column basis and return mean & sd for each col
-        
+    
     
     def apportion_train_set(self, learn_superset, train_split = 0.8):
 
